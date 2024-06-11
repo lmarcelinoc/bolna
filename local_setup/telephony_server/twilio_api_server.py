@@ -1,7 +1,6 @@
 import os
 import json
 import requests
-import uuid
 from twilio.twiml.voice_response import VoiceResponse, Connect
 from twilio.rest import Client
 from dotenv import load_dotenv
@@ -86,3 +85,29 @@ async def twilio_callback(ws_url: str = Query(...), agent_id: str = Query(...)):
 
     except Exception as e:
         print(f"Exception occurred in twilio_callback: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@app.post('/incoming_call')
+async def incoming_call(request: Request, agent_id: str = Query(None)):
+    try:
+        response = VoiceResponse()
+        connect = Connect()
+
+        # Check if agent_id is provided
+        if not agent_id:
+            agent_id = 'default_agent_id'  # Define your logic to select a default agent
+
+        # Retrieve ngrok tunnel URLs
+        app_callback_url, websocket_url = populate_ngrok_tunnels()
+
+        # Construct the websocket URL for the agent
+        websocket_twilio_route = f'{websocket_url}/chat/v1/{agent_id}'
+        connect.stream(url=websocket_twilio_route)
+        response.append(connect)
+
+        return PlainTextResponse(str(response), status_code=200, media_type='text/xml')
+
+    except Exception as e:
+        print(f"Exception occurred in incoming_call: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
